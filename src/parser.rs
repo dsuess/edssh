@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-use std::fmt::Error;
 use std::vec::Vec;
 
 #[derive(Debug, PartialEq)]
@@ -9,8 +7,7 @@ enum ConfigStatement {
     Unknown(String),
 }
 
-// FIXME This won't be able to deal with duplicates...
-type ParsedConfig = HashMap<String, Vec<ConfigStatement>>;
+type ParsedConfig = Vec<(String, Vec<ConfigStatement>)>;
 
 // TODO Replace parsing by something more robust (e.g. regular expressions)
 fn parse_line(line: &str) -> ConfigStatement {
@@ -26,11 +23,18 @@ fn parse_line(line: &str) -> ConfigStatement {
     }
 }
 
-fn parse_config(config: &str) -> Result<ParsedConfig, Error> {
-    let mut parsed_config: ParsedConfig = HashMap::new();
+fn parse_config(config: &str) -> Result<ParsedConfig, String> {
+    let mut parsed_config: ParsedConfig = Vec::new();
     let mut lines = config.lines().enumerate().peekable();
 
     while let Some((line_nr, line)) = lines.next() {
+        if line.starts_with(char::is_whitespace) {
+            return Err(format!(
+                "Malformed config at line {}: Unexpected whitespace",
+                line_nr
+            ));
+        };
+
         let hostname = match line
             .trim()
             .split_whitespace()
@@ -39,7 +43,12 @@ fn parse_config(config: &str) -> Result<ParsedConfig, Error> {
         {
             [] => continue,
             ["Host", hostname] => hostname.to_string(),
-            _ => panic!("Unknown config statement at line {}", line_nr), //FIXME
+            _ => {
+                return Err(format!(
+                    "Malformed config at line {}: Could not parse Host",
+                    line_nr
+                ))
+            }
         };
 
         let mut statements: Vec<ConfigStatement> = Vec::new();
@@ -52,7 +61,7 @@ fn parse_config(config: &str) -> Result<ParsedConfig, Error> {
             lines.next();
         }
 
-        parsed_config.insert(hostname.to_string(), statements);
+        parsed_config.push((hostname.to_string(), statements));
     }
 
     Ok(parsed_config)
@@ -92,17 +101,18 @@ Host github
     fn test_parse_config() {
         let result = parse_config(SAMPLE_CONFIG).unwrap();
         assert_eq!(result.len(), 1);
-        let github = result.get("github").unwrap();
-        assert_eq!(github.len(), 3);
+        let (name, statements) = &result[0];
+        assert_eq!(name, "github");
+        assert_eq!(statements.len(), 3);
         assert_eq!(
-            github[0],
+            statements[0],
             ConfigStatement::HostName("github.com".to_string())
         );
         assert_eq!(
-            github[1],
+            statements[1],
             ConfigStatement::Unknown("IdentityFile ~/.ssh/id_rsa".to_string())
         );
-        assert_eq!(github[2], ConfigStatement::Port("22".to_string()));
+        assert_eq!(statements[2], ConfigStatement::Port("22".to_string()));
     }
 
     #[test]
@@ -125,5 +135,17 @@ Host google
         let parsed = parse_config(MULTI_HOST_SAMPLE_CONFIG).unwrap();
         let formatted = format_config(&parsed, "  ");
         assert_eq!(formatted.trim(), MULTI_HOST_SAMPLE_CONFIG.trim());
+    }
+
+    const MALFORMED_SAMPLE_CONFIG: &str = "
+  Host github
+    HostName github.com
+    IdentityFile ~/.ssh/id_rsa
+    Port 22
+";
+    #[test]
+    fn test_parse_malformed_config() {
+        let res = parse_config(MALFORMED_SAMPLE_CONFIG);
+        assert!(res.is_err());
     }
 }
