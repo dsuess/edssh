@@ -2,7 +2,7 @@ mod parser;
 use clap::Parser;
 
 use shellexpand;
-use std::{error::Error, fs, ops::Deref, path::Path};
+use std::{error::Error, fs, ops::Deref};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about=None)]
@@ -34,7 +34,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Input
     let config_str = fs::read_to_string(&config_path)?;
     let mut config = parser::parse_config(&config_str)?;
-    let mut entry = &mut config
+    let entry = &mut config
         .iter_mut()
         .find(|(name, _)| name == &args.host)
         .ok_or(format!("Host '{}' not found", &args.host))?;
