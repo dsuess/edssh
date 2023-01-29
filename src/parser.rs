@@ -1,7 +1,7 @@
 use std::vec::Vec;
 
 #[derive(Debug, PartialEq)]
-enum ConfigStatement {
+pub enum ConfigStatement {
     HostName(String),
     Port(String),
     Unknown(String),
@@ -23,7 +23,7 @@ fn parse_line(line: &str) -> ConfigStatement {
     }
 }
 
-fn parse_config(config: &str) -> Result<ParsedConfig, String> {
+pub fn parse_config(config: &str) -> Result<ParsedConfig, String> {
     let mut parsed_config: ParsedConfig = Vec::new();
     let mut lines = config.lines().enumerate().peekable();
 
@@ -75,7 +75,7 @@ fn format_line(statement: &ConfigStatement) -> String {
     }
 }
 
-fn format_config(config: &ParsedConfig, indent: &str) -> String {
+pub fn format_config(config: &ParsedConfig, indent: &str) -> String {
     let mut result = String::new();
     for (hostname, statements) in config.into_iter() {
         result.push_str(&format!("Host {}\n", hostname));
